@@ -8,7 +8,6 @@
             {
                 var dtn = DateTime.Now;
                 sr.WriteLine(dtn.ToString() + Environment.NewLine);
-                sr.WriteLine(Environment.NewLine);
                 sr.WriteLine(e.ToString() + Environment.NewLine);
             }
         }

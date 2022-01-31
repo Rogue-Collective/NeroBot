@@ -1,5 +1,11 @@
 ﻿using System.Diagnostics;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Web;
 using TwitchLib.Api;
+using TwitchLib.Api.Auth;
+using TwitchLib.Api.Core.Enums;
 using TwitchLib.Api.Services;
 using TwitchLib.Api.Services.Events;
 using TwitchLib.Api.Services.Events.FollowerService;
@@ -9,6 +15,9 @@ using TwitchLib.Client.Events;
 using TwitchLib.Client.Models;
 using TwitchLib.Communication.Clients;
 using TwitchLib.Communication.Models;
+using TwitchLib.PubSub;
+using TwitchLib.PubSub.Events;
+using NHttp;
 
 #if RELEASE
 using Microsoft.Toolkit.Uwp.Notifications;
@@ -34,6 +43,12 @@ namespace NeroBot
 
     }
 
+    public struct sObj
+    {
+        public string EventType;
+        public string User;
+    }
+
     public class LiveMonitor
     {
         //Twitch stuff
@@ -41,7 +56,10 @@ namespace NeroBot
         private FollowerService fs;
         private TwitchAPI api;
         private static TwitchClient client;
-        ConnectionCredentials creds = new(BotCred.BotName, BotCred.BotAuth);
+        //private static TwitchPubSub tps;
+        ConnectionCredentials creds;
+        string oauth = "";
+        //HttpServer httpServ;
 
 #if RELEASE
 
@@ -49,7 +67,8 @@ namespace NeroBot
         //Form stuff
         static NotifyIcon ni;
         private Form form1;
-        private TextBox textbox1;
+        public static TextBox textbox1;
+        
 
 #endif //RELEASE
 
@@ -58,6 +77,7 @@ namespace NeroBot
         public string gam;
         public string title;
         public int crashHighScore = 0;
+        public Dictionary<string, DateTime> UsersWatchTime;
         //DateTime cooldown;
 
         public LiveMonitor()
@@ -77,6 +97,14 @@ namespace NeroBot
 
             ReadVars();
 
+            api = new TwitchAPI();
+            api.Settings.ClientId = BotCred.ClientID;
+            api.Settings.AccessToken = BotCred.BotAccToken;
+
+            //GetOauth();
+
+            creds = new ConnectionCredentials(BotCred.BotName, BotCred.BotOauth);
+
             //Task.Delay(TimeSpan.FromSeconds(5));
             var clientOptions = new ClientOptions
             {
@@ -87,19 +115,19 @@ namespace NeroBot
             client = new TwitchClient(customClient);
             client.Initialize(creds, ds.streams[0]);
 
-            api = new TwitchAPI();
-            api.Settings.ClientId = BotCred.ClientID;
-            api.Settings.AccessToken = BotCred.BotAccToken;
+            UsersWatchTime = new Dictionary<string, DateTime>();
+            //tps = new TwitchPubSub();
+
 
             fs = new FollowerService(api, 15);
             mon = new LiveStreamMonitorService(api, 15);
 
             Task.Run(() => ConfigLiveAsync());
-#if RELEASE
             Task.Run(() => FormLoop());
-#endif //RELEASE
 
         }
+
+        
 
         private async Task ConfigLiveAsync()
         {
@@ -117,20 +145,107 @@ namespace NeroBot
                 mon.OnStreamOnline += Mon_OnStreamOnline;
                 mon.OnStreamOffline += Mon_OnStreamOffline;
                 mon.OnStreamUpdate += Mon_OnStreamUpdate;
+                
                 fs.OnNewFollowersDetected += Fs_OnFollow;
                 fs.OnServiceTick += Fs_OnTick;
                 fs.OnChannelsSet += Fs_OnChannelsSet;
 
-                client.OnLog += Client_OnLog;
                 client.OnMessageReceived += Client_OnMessageRec;
+                client.OnUserJoined += Client_OnUserJoin;
+                client.OnUserLeft += Client_OnUserLeft;
+                client.OnExistingUsersDetected += Client_OnExistingUsersDetected;
 
             }
             client.Connect();
+            //tps.Connect();
             fs.Start();
             mon.Start();
 
             await Task.Delay(-1);
         }
+
+        private void Client_OnExistingUsersDetected(object? sender, OnExistingUsersDetectedArgs e)
+        {
+            for (int i = 0; i < e.Users.Count; i++)
+            {
+                UsersWatchTime.Add(e.Users[i], DateTime.Now);
+            }
+        }
+
+        private void Client_OnUserLeft(object? sender, OnUserLeftArgs e)
+        {
+            UsersWatchTime.Remove(e.Username);
+        }
+
+
+        #region PubSub
+        //private void Tps_OnListenResponse(object? sender, OnListenResponseArgs e)
+        //{
+        //    if (!e.Successful)
+        //    {
+        //        Discordstuff.WriteTextSafe(e.Topic + " : " + e.Response.Error, textbox1);
+
+        //    }
+
+        //}
+
+        //private async void Tps_onConnect(object? sender, EventArgs e)
+        //{
+        //    var temp = await api.Auth.ValidateAccessTokenAsync(BotCred.StreamerOauth);
+        //    if (temp == null)
+        //    {
+        //        Discordstuff.WriteTextSafe("Access Token Invalid", textbox1);
+        //    }
+        //    else
+        //    {
+        //        tps.SendTopics(BotCred.StreamerOauth);
+        //    }
+
+        //}
+
+        //private async void Tps_OnBits2(object? sender, OnBitsReceivedV2Args e)
+        //{
+        //    if (!e.IsAnonymous)
+        //    {
+        //        client.SendMessage(e.ChannelName, e.UserName + " has sent " + e.BitsUsed + " bits!");
+        //        client.SendMessage(e.ChannelName, e.UserName + " has sent " + e.TotalBitsUsed + " in the channel so far!");
+        //    }
+        //    else
+        //    {
+        //        client.SendMessage(e.ChannelName, "Anonymous has sent " + e.BitsUsed + " bits!");
+        //    }
+
+        //    try
+        //    {
+        //        sObj temp = new sObj();
+        //        temp.EventType = "bits";
+        //        if (!e.IsAnonymous)
+        //        {
+        //            temp.User = e.UserName + " has sent " + e.BitsUsed;
+        //        }
+        //        else
+        //        {
+        //            temp.User = "Anonymous has sent" + e.BitsUsed;
+        //        }
+        //        await ass.Send(temp);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Discordstuff.WriteTextSafe(ex.Message, textbox1);
+
+        //    }
+
+        //}
+
+        //private void Tps_OnSub(object? sender, OnChannelSubscriptionArgs e)
+        //{
+        //    client.SendMessage(e.Subscription.ChannelName, e.Subscription.DisplayName + " has become a Rogue subscriber for " + e.Subscription.MultiMonthDuration + " months!");
+        //    if (e.Subscription.CumulativeMonths > 0)
+        //    {
+        //        client.SendMessage(e.Subscription.ChannelName, e.Subscription.DisplayName + " has been subscribed for " + e.Subscription.CumulativeMonths + " months!");
+        //    }
+        //}
+        #endregion
 
         #region OtherFuncs
         private void UpdateMonitors()
@@ -265,11 +380,8 @@ namespace NeroBot
             textbox1.WordWrap = true;
             textbox1.Font = new Font(textbox1.Font.FontFamily, 16);
             textbox1.ScrollBars = ScrollBars.Vertical;
-            ds.tb = textbox1;
 
             //Form Events
-            form1.Click += Form_OnClick;
-            form1.Activated += Form_OnActivate;
             form1.Load += Form_OnLoad;
             form1.FormClosed += Form_Closed;
             Application.Run(form1);
@@ -291,24 +403,11 @@ namespace NeroBot
         private void Form_OnLoad(object? sender, EventArgs e)
         {
             textbox1.Show();
+
+            textbox1.Text += oauth + Environment.NewLine;
         }
 
-        private void Form_OnActivate(object? sender, EventArgs e)
-        {
-
-        }
-
-        private void Form_OnClick(object? sender, EventArgs e)
-        {
-
-        }
-
-        private void Form1_Move(object? sender, EventArgs e)
-        {
-
-        }
         #endregion
-
 
         private void toastArgs(ToastNotificationActivatedEventArgsCompat e)
         {
@@ -389,7 +488,7 @@ namespace NeroBot
             UpdateMonitors();
         }
 
-        private void Fs_OnFollow(object sender, OnNewFollowersDetectedArgs e)
+        private async void Fs_OnFollow(object sender, OnNewFollowersDetectedArgs e)
         {
 #if RELEASE
             Discordstuff.WriteTextSafe("New Follower detected!", textbox1);
@@ -410,6 +509,7 @@ namespace NeroBot
                 else if (DateTime.Compare(e.NewFollowers[0].FollowedAt, timeout) > 0)
                 {
                     client.SendMessage(e.NewFollowers[0].ToUserName, "Thanks for the follow! @" + e.NewFollowers[0].FromUserName);
+                    
                 }
             }
             catch (Exception ex)
@@ -428,9 +528,22 @@ namespace NeroBot
 
         #region MonitorFuncs
 
-        private void Mon_OnStreamUpdate(object sender, OnStreamUpdateArgs e)
+        private async void Mon_OnStreamUpdate(object sender, OnStreamUpdateArgs e)
         {
-            throw new NotImplementedException();
+            if (gam != e.Stream.GameName)
+            {
+                gam = e.Stream.GameName;
+                if (gam == "Grand Theft Auto V")
+                {
+                    ds.crashcounter = 0;
+                }
+            }
+
+            if (title != e.Stream.Title)
+            {
+                title = e.Stream.Title;
+            }
+            
         }
 
         private async void Mon_OnStreamOffline(object sender, OnStreamOfflineArgs e)
@@ -441,6 +554,7 @@ namespace NeroBot
             }
             ds.crashcounter = 0;
             ds.streamWhat = "";
+            UsersWatchTime.Clear();
 #if RELEASE
             var user = await api.Helix.Users.GetUsersAsync(logins: ds.streams);
             new ToastContentBuilder()
@@ -567,13 +681,51 @@ namespace NeroBot
             {
                 var tem = await api.Helix.Streams.GetStreamsAsync(userLogins: new List<string>() { e.ChatMessage.Channel });
                 var timeElapsed = DateTime.Now.Subtract(tem.Streams.First().StartedAt);
-                client.SendMessage(e.ChatMessage.Channel, timeElapsed.ToString(@"hh\:mm\:ss"));
+                client.SendMessage(e.ChatMessage.Channel, "Stream has been online : " + timeElapsed.ToString(@"hh\:mm\:ss"));
                 return;
+            }
+
+            if (temp.ElementAt(0) == "!watchtime")
+            {
+                try
+                {
+                    DateTime o;
+                    if (UsersWatchTime.TryGetValue(e.ChatMessage.Username, out o))
+                    {
+                        var wt = DateTime.Now.Subtract(o);
+                        if (wt.CompareTo(TimeSpan.FromMinutes(60)) > 0)
+                        {
+                            client.SendMessage(e.ChatMessage.Channel, "you have been watching for : " + wt.ToString(@"hh\:mm\:ss"));
+                        }
+                        else if (wt.CompareTo(TimeSpan.FromMinutes(60)) < 0)
+                        {
+                            client.SendMessage(e.ChatMessage.Channel, "You have been watching for : " + wt.ToString(@"mm\:ss"));
+                        }
+                    }
+                    else
+                    {
+                        client.SendMessage(e.ChatMessage.Channel, e.ChatMessage.DisplayName + " You aint on the list m8");
+                        Discordstuff.WriteTextSafe(" UsersWatchTimeList size : " + UsersWatchTime.Count.ToString(), textbox1);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logging.WriteToFile(ex);
+                }
+                
+
             }
 
             if (temp.ElementAt(0) == "!what" && ds.streamWhat != null)
             {
                 client.SendMessage(e.ChatMessage.Channel, "What am i doing? : " + ds.streamWhat);
+
+                //sObj o = new sObj
+                //{
+                //    EventType = "what",
+                //    User = e.ChatMessage.DisplayName
+                //};
+                //await ass.Send(o);
             }
 
 #if RELEASE
@@ -598,11 +750,9 @@ namespace NeroBot
 #endif
         }
 
-        private void Client_OnLog(object sender, TwitchLib.Client.Events.OnLogArgs e)
+        private void Client_OnUserJoin(object? sender, OnUserJoinedArgs e)
         {
-#if DEBUG
-            Discordstuff.WriteTextSafe"tClient : " + e.Data);
-#endif
+            UsersWatchTime.Add(e.Username, DateTime.Now);
         }
 
         #endregion

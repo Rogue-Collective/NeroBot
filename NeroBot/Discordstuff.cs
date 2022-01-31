@@ -12,10 +12,6 @@ namespace NeroBot
         EmbedAuthorBuilder authorBuilder;
         //CommandService cs;
 
-#if RELEASE
-        public TextBox? tb;
-#endif
-
         public List<string> streams;
         public List<string> Socials;
         public DateTime prev;
@@ -103,8 +99,7 @@ namespace NeroBot
             embed.Author = authorBuilder;
             embed.AddField("Action", "User Updated");
             if (oldNick != null)
-            {
-                WriteTextSafe(oldNick.Nickname);
+            {;
                 embed.AddField("Previous Name", oldNick.Nickname, true);
             }
             embed.AddField("Updated Name", arg2.Nickname, true);
@@ -210,7 +205,7 @@ namespace NeroBot
             catch (Exception e)
             {
 #if RELEASE
-                WriteTextSafe("Update: " + e.Message, tb);
+                WriteTextSafe("Update: " + e.Message, LiveMonitor.textbox1);
 #else
                 Discordstuff.WriteTextSafe("Update: " + e.Message);
 #endif          
@@ -332,7 +327,7 @@ namespace NeroBot
             catch (Exception e)
             {
 #if RELEASE
-                WriteTextSafe("Update: " + e.Message, tb);
+                WriteTextSafe("Update: " + e.Message, LiveMonitor.textbox1);
 #else
                 Discordstuff.WriteTextSafe("Update: " + e.Message);
 #endif          
@@ -382,7 +377,7 @@ namespace NeroBot
                 catch (Exception e)
                 {
 #if RELEASE
-                    WriteTextSafe("Update: " + e.Message, tb);
+                    WriteTextSafe("Update: " + e.Message, LiveMonitor.textbox1);
 #else
                 Discordstuff.WriteTextSafe("Update: " + e.Message);
 #endif
@@ -414,7 +409,7 @@ namespace NeroBot
             catch (Exception e)
             {
 #if RELEASE
-                WriteTextSafe("Update: " + e.Message, tb);
+                WriteTextSafe("Update: " + e.Message, LiveMonitor.textbox1);
 #else
                 Discordstuff.WriteTextSafe("Update: " + e.Message);
 #endif
@@ -443,7 +438,7 @@ namespace NeroBot
         #endregion
 
         #region Other Funcs
-        public static void WriteTextSafe(string text, TextBox? tb = null)
+        public static void WriteTextSafe(string text, TextBox? tb)
         {
 
             if (tb == null)

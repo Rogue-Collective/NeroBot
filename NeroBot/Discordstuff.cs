@@ -19,6 +19,7 @@ namespace NeroBot
         public ulong LoggingChan = 0;
         public ulong WelcomeChan = 0;
         public ulong AnnounceChan = 0;
+        public ulong TrailerChan = 0;
         public string DiscordInvite = "";
         public int crashcounter;
         public string dInvitetMessage = "";

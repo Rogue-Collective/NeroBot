@@ -33,6 +33,7 @@ namespace NeroBot
         public ulong lgc;
         public ulong wc;
         public ulong ac;
+        public ulong tc;
         public string di;
         public string dim;
         public string cjm;
@@ -74,6 +75,7 @@ namespace NeroBot
 
         //Other Stuff
         public Discordstuff ds;
+        public Youtubestuff yts;
         public string gam;
         public string title;
         public int crashHighScore = 0;
@@ -102,6 +104,8 @@ namespace NeroBot
             api.Settings.AccessToken = BotCred.BotAccToken;
 
             //GetOauth();
+
+            
 
             creds = new ConnectionCredentials(BotCred.BotName, BotCred.BotOauth);
 
@@ -154,6 +158,8 @@ namespace NeroBot
                 client.OnUserJoined += Client_OnUserJoin;
                 client.OnUserLeft += Client_OnUserLeft;
                 client.OnExistingUsersDetected += Client_OnExistingUsersDetected;
+                client.OnCommunitySubscription += Client_OnCommSub;
+                
 
             }
             client.Connect();
@@ -164,88 +170,8 @@ namespace NeroBot
             await Task.Delay(-1);
         }
 
-        private void Client_OnExistingUsersDetected(object? sender, OnExistingUsersDetectedArgs e)
-        {
-            for (int i = 0; i < e.Users.Count; i++)
-            {
-                UsersWatchTime.Add(e.Users[i], DateTime.Now);
-            }
-        }
+       
 
-        private void Client_OnUserLeft(object? sender, OnUserLeftArgs e)
-        {
-            UsersWatchTime.Remove(e.Username);
-        }
-
-
-        #region PubSub
-        //private void Tps_OnListenResponse(object? sender, OnListenResponseArgs e)
-        //{
-        //    if (!e.Successful)
-        //    {
-        //        Discordstuff.WriteTextSafe(e.Topic + " : " + e.Response.Error, textbox1);
-
-        //    }
-
-        //}
-
-        //private async void Tps_onConnect(object? sender, EventArgs e)
-        //{
-        //    var temp = await api.Auth.ValidateAccessTokenAsync(BotCred.StreamerOauth);
-        //    if (temp == null)
-        //    {
-        //        Discordstuff.WriteTextSafe("Access Token Invalid", textbox1);
-        //    }
-        //    else
-        //    {
-        //        tps.SendTopics(BotCred.StreamerOauth);
-        //    }
-
-        //}
-
-        //private async void Tps_OnBits2(object? sender, OnBitsReceivedV2Args e)
-        //{
-        //    if (!e.IsAnonymous)
-        //    {
-        //        client.SendMessage(e.ChannelName, e.UserName + " has sent " + e.BitsUsed + " bits!");
-        //        client.SendMessage(e.ChannelName, e.UserName + " has sent " + e.TotalBitsUsed + " in the channel so far!");
-        //    }
-        //    else
-        //    {
-        //        client.SendMessage(e.ChannelName, "Anonymous has sent " + e.BitsUsed + " bits!");
-        //    }
-
-        //    try
-        //    {
-        //        sObj temp = new sObj();
-        //        temp.EventType = "bits";
-        //        if (!e.IsAnonymous)
-        //        {
-        //            temp.User = e.UserName + " has sent " + e.BitsUsed;
-        //        }
-        //        else
-        //        {
-        //            temp.User = "Anonymous has sent" + e.BitsUsed;
-        //        }
-        //        await ass.Send(temp);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Discordstuff.WriteTextSafe(ex.Message, textbox1);
-
-        //    }
-
-        //}
-
-        //private void Tps_OnSub(object? sender, OnChannelSubscriptionArgs e)
-        //{
-        //    client.SendMessage(e.Subscription.ChannelName, e.Subscription.DisplayName + " has become a Rogue subscriber for " + e.Subscription.MultiMonthDuration + " months!");
-        //    if (e.Subscription.CumulativeMonths > 0)
-        //    {
-        //        client.SendMessage(e.Subscription.ChannelName, e.Subscription.DisplayName + " has been subscribed for " + e.Subscription.CumulativeMonths + " months!");
-        //    }
-        //}
-        #endregion
 
         #region OtherFuncs
         private void UpdateMonitors()
@@ -305,6 +231,7 @@ namespace NeroBot
                     crashHighScore = bd.highscore;
                     ds.LoggingChan = bd.lgc;
                     ds.WelcomeChan = bd.wc;
+                    ds.TrailerChan = bd.tc;
                     ds.DiscordInvite = bd.di;
                     ds.dInvitetMessage = bd.dim;
                     ds.customJoinMsg = bd.cjm;
@@ -337,6 +264,7 @@ namespace NeroBot
                 bd.lgc = ds.LoggingChan;
                 bd.wc = ds.WelcomeChan;
                 bd.ac = ds.AnnounceChan;
+                bd.tc = ds.TrailerChan;
                 bd.di = ds.DiscordInvite;
                 bd.dim = ds.dInvitetMessage;
                 bd.cjm = ds.customJoinMsg;
@@ -386,6 +314,8 @@ namespace NeroBot
             form1.FormClosed += Form_Closed;
             Application.Run(form1);
 
+            
+
             await Task.Delay(Timeout.Infinite);
         }
 
@@ -404,7 +334,9 @@ namespace NeroBot
         {
             textbox1.Show();
 
-            textbox1.Text += oauth + Environment.NewLine;
+            yts = new Youtubestuff();
+
+            //textbox1.Text += oauth + Environment.NewLine;
         }
 
         #endregion
@@ -753,6 +685,25 @@ namespace NeroBot
         private void Client_OnUserJoin(object? sender, OnUserJoinedArgs e)
         {
             UsersWatchTime.Add(e.Username, DateTime.Now);
+        }
+
+        private void Client_OnCommSub(object? sender, OnCommunitySubscriptionArgs e)
+        {
+            client.SendMessage(e.Channel, e.GiftedSubscription.DisplayName + "Thank you for gifting " + e.GiftedSubscription.MsgParamSenderCount + " Subs!");
+            client.SendMessage(e.Channel, e.GiftedSubscription.DisplayName + " Has gifted " + e.GiftedSubscription.MsgParamMassGiftCount + " in this channel so far!");
+        }
+
+        private void Client_OnExistingUsersDetected(object? sender, OnExistingUsersDetectedArgs e)
+        {
+            for (int i = 0; i < e.Users.Count; i++)
+            {
+                UsersWatchTime.Add(e.Users[i], DateTime.Now);
+            }
+        }
+
+        private void Client_OnUserLeft(object? sender, OnUserLeftArgs e)
+        {
+            UsersWatchTime.Remove(e.Username);
         }
 
         #endregion

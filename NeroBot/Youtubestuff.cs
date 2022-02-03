@@ -14,8 +14,12 @@ namespace NeroBot
 {
     public class UpdatedArgs : EventArgs
     {
-        public string Title;
-        public string Uri;
+        SyndicationItem item;
+
+        public UpdatedArgs(SyndicationItem item)
+        {
+            this.item = item;
+        }
     }
 
     
@@ -23,6 +27,7 @@ namespace NeroBot
     {
         List<string> urls;
         Atom10FeedFormatter atomform;
+        XmlReader xmlr;
 
         public event EventHandler<UpdatedArgs> Updated;
         
@@ -35,11 +40,11 @@ namespace NeroBot
 
             urls.Add("https://www.youtube.com/feeds/videos.xml?user=GameTrailers");
 
-            var xmlcamel = XmlReader.Create(urls[0]);
+            xmlr = XmlReader.Create(urls[0]);
 
             atomform = new Atom10FeedFormatter();
 
-            atomform.ReadFrom(xmlcamel);
+            atomform.ReadFrom(xmlr);
 
             
 
@@ -50,14 +55,22 @@ namespace NeroBot
 
         public async Task DostuffInit()
         {
-            var items = atomform.Feed.Items;
 
-            foreach (var item in items)
-            {
-                Discordstuff.WriteTextSafe(item.Title.Text, LiveMonitor.textbox1);
-            }
+
+            await CheckEvents();
 
             await Task.Delay(Timeout.Infinite);
+        }
+
+        public async Task CheckEvents()
+        {
+            atomform.ReadFrom(xmlr);
+            var item = atomform.Feed.Items.FirstOrDefault();
+
+            if (item.LastUpdatedTime > DateTime.Now.Subtract(TimeSpan.FromMinutes(5)))
+            {
+                Updated?.Invoke(this, new UpdatedArgs(item)) ; 
+            }
         }
     }
 }

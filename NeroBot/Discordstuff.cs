@@ -51,8 +51,6 @@ namespace NeroBot
 
             Task.Run(() => DiscordRun());
 
-
-
         }
 
         private async void DiscordRun()

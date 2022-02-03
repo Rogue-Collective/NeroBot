@@ -336,7 +336,14 @@ namespace NeroBot
 
             yts = new Youtubestuff();
 
+            yts.Updated += YTS_OnUpdated;
+
             //textbox1.Text += oauth + Environment.NewLine;
+        }
+
+        private void YTS_OnUpdated(object? sender, UpdatedArgs e)
+        {
+            
         }
 
         #endregion

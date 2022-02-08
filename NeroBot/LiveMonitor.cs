@@ -39,8 +39,10 @@ namespace NeroBot
         public string cjm;
         public string what;
         public DateTime prev;
+        public DateTime prev2;
         public List<string> strms;
         public List<string> scls;
+        public List<string> yturls;
 
     }
 
@@ -240,6 +242,8 @@ namespace NeroBot
                     ds.streamWhat = bd.what;
                     ds.AnnounceChan = bd.ac;
                     ds.prev = bd.prev;
+                    ds.prevpost = bd.prev2;
+                    Youtubestuff.urls = bd.yturls;
 
                 }
             }
@@ -272,6 +276,8 @@ namespace NeroBot
                 bd.scls = ds.Socials;
                 bd.what = ds.streamWhat;
                 bd.prev = ds.prev;
+                bd.prev2 = ds.prevpost;
+                bd.yturls = Youtubestuff.urls;
 
                 using (StreamWriter sw = new StreamWriter(@"bot.txt"))
                 {
@@ -341,9 +347,9 @@ namespace NeroBot
             //textbox1.Text += oauth + Environment.NewLine;
         }
 
-        private void YTS_OnUpdated(object? sender, UpdatedArgs e)
+        private async void YTS_OnUpdated(object? sender, UpdatedArgs e)
         {
-            
+            await ds.PostVideo(ds.TrailerChan, e);
         }
 
         #endregion

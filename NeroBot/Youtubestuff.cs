@@ -9,25 +9,33 @@ using Google.Apis.YouTube.v3;
 using Google.Apis.YouTube.v3.Data;
 using System.ServiceModel.Syndication;
 using System.Xml;
+using CodeHollow.FeedReader;
+using CodeHollow.FeedReader.Feeds;
+using CodeHollow.FeedReader.Parser;
+using System.Xml.Linq;
+
 
 namespace NeroBot
 {
     public class UpdatedArgs : EventArgs
     {
-        SyndicationItem item;
+        public string Author;
+        public string Url;
 
-        public UpdatedArgs(SyndicationItem item)
+        public UpdatedArgs(string author, string url)
         {
-            this.item = item;
+            this.Author = author;
+            this.Url = url;
         }
     }
 
     
     public class Youtubestuff
     {
-        List<string> urls;
-        Atom10FeedFormatter atomform;
-        XmlReader xmlr;
+        public static List<string> urls;
+        public Feed feed;
+        //public XmlReader reader;
+        
 
         public event EventHandler<UpdatedArgs> Updated;
         
@@ -35,41 +43,73 @@ namespace NeroBot
         public Youtubestuff()
         {
             urls = new List<string>();
-            var bcs = new BaseClientService.Initializer { ApiKey = BotCred.GoogleAPIKey };
-            //yts = new YouTubeService(bcs);
 
             urls.Add("https://www.youtube.com/feeds/videos.xml?user=GameTrailers");
 
-            xmlr = XmlReader.Create(urls[0]);
-
-            atomform = new Atom10FeedFormatter();
-
-            atomform.ReadFrom(xmlr);
-
-            
-
             Task.Run(() => DostuffInit());
-            
-            
         }
 
         public async Task DostuffInit()
-        {
-
-
-            await CheckEvents();
-
-            await Task.Delay(Timeout.Infinite);
+        { 
+            while (true)
+            {
+                await CheckEvents();
+                await Task.Delay(TimeSpan.FromSeconds(30));
+            }
         }
 
         public async Task CheckEvents()
         {
-            atomform.ReadFrom(xmlr);
-            var item = atomform.Feed.Items.FirstOrDefault();
-
-            if (item.LastUpdatedTime > DateTime.Now.Subtract(TimeSpan.FromMinutes(5)))
+            try
             {
-                Updated?.Invoke(this, new UpdatedArgs(item)) ; 
+                for (int i = 0; i < urls.Count; i++)
+                {
+                    feed = await FeedReader.ReadAsync(urls[i]).ConfigureAwait(false);
+
+                    var Atomfeed = feed.SpecificFeed;
+                   
+                    var item = feed.Items.FirstOrDefault();
+
+                    string auth = "";
+                    string url = "";
+
+                    auth = item.Author;
+                    url = item.Link;
+
+                    //Discordstuff.WriteTextSafe("Author : " + auth, LiveMonitor.textbox1);
+                    //Discordstuff.WriteTextSafe("Title : " + vTitle, LiveMonitor.textbox1);
+                    //Discordstuff.WriteTextSafe("Author : " + auth + " LastUpdated : " + item.PublishingDate, LiveMonitor.textbox1);
+
+
+                    if (item.PublishingDate > DateTime.Now.Subtract(TimeSpan.FromMinutes(20)))
+                    {
+                        Updated?.Invoke(this, new UpdatedArgs(auth, url));
+                    }
+                }
+                
+            }
+            catch (Exception ex)
+            {
+                Discordstuff.WriteTextSafe(ex.Message, LiveMonitor.textbox1);
+                Logging.WriteToFile(ex);
+                
+            }
+            
+        }
+
+        public static void AddUrl(string url)
+        {
+            urls.Add(url);
+        }
+
+        public static void RemoveUrl(string url)
+        {
+            for (int i = 0; i < urls.Count;i++)
+            {
+                if (urls[i] == url)
+                {
+                    urls.RemoveAt(i);
+                }
             }
         }
     }

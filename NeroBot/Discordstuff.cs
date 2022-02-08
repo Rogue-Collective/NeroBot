@@ -15,6 +15,7 @@ namespace NeroBot
         public List<string> streams;
         public List<string> Socials;
         public DateTime prev;
+        public DateTime prevpost;
         char pref = ' ';
         public ulong LoggingChan = 0;
         public ulong WelcomeChan = 0;
@@ -273,6 +274,10 @@ namespace NeroBot
                         {
                             AnnounceChan = ulong.Parse(temp[1]);
                         }
+                        else if (temp[0].Contains("settrailer"))
+                        {
+                            TrailerChan = ulong.Parse(temp[1]);
+                        }
                         else if (temp[0].Contains("setcrash"))
                         {
                             crashcounter = int.Parse(temp[1]);
@@ -316,6 +321,14 @@ namespace NeroBot
                                 streamWhat += " " + temp[i];
                             }
                         }
+                        else if (temp[0].Contains("addurl"))
+                        {
+                            Youtubestuff.AddUrl(temp[1]);
+                        }
+                        else if (temp[0].Contains("removeurl"))
+                        {
+                            Youtubestuff.RemoveUrl(temp[1]);
+                        }
                     }
                     else
                     {
@@ -326,7 +339,7 @@ namespace NeroBot
             catch (Exception e)
             {
 #if RELEASE
-                WriteTextSafe("Update: " + e.Message, LiveMonitor.textbox1);
+                WriteTextSafe("OnMessage : " + e.Message, LiveMonitor.textbox1);
 #else
                 Discordstuff.WriteTextSafe("Update: " + e.Message);
 #endif          
@@ -341,9 +354,9 @@ namespace NeroBot
             {
                 try
                 {
-                    SocketTextChannel announce = GetSocketTextChannel(AnnounceChan);
+                    SocketTextChannel? announce = GetSocketTextChannel(AnnounceChan);
 
-                    var timeout = DateTime.Now.Subtract(TimeSpan.FromMinutes(30));
+                    var timeout = DateTime.Now.Subtract(TimeSpan.FromMinutes(15));
 
                     if (DateTime.Compare(prev, timeout) < 0)
                     {
@@ -384,6 +397,36 @@ namespace NeroBot
                 }
 
 
+            }
+        }
+
+        public async Task PostVideo(ulong channel, UpdatedArgs e)
+        {
+
+            SocketTextChannel? chan = GetSocketTextChannel(channel);
+            if (chan != null)
+            {
+                try
+                {
+                    
+                    var timeout = DateTime.Now.Subtract(TimeSpan.FromMinutes(30));
+                    if (DateTime.Compare(prevpost, timeout) < 0)
+                    {
+                        await chan.SendMessageAsync(text: e.Author + " has posted a new video! " + e.Url);
+                        prevpost = DateTime.Now;
+                    }
+
+                }
+                catch (Exception ex)
+                {
+
+                    WriteTextSafe("Update: " + ex.Message, LiveMonitor.textbox1);
+                    Logging.WriteToFile(ex);
+                }
+            }
+            else
+            {
+                WriteTextSafe("You havn't set the channel yet Knobhead", LiveMonitor.textbox1);
             }
         }
 
@@ -467,9 +510,17 @@ namespace NeroBot
 
         }
 
-        public SocketTextChannel GetSocketTextChannel(ulong chanID)
+        public SocketTextChannel? GetSocketTextChannel(ulong chanID)
         {
-            return (SocketTextChannel)dsc.GetChannelAsync(chanID, RequestOptions.Default).Result;
+            if (chanID != 0)
+            {
+                return dsc.GetChannelAsync(chanID, RequestOptions.Default).Result as SocketTextChannel;
+            }
+            else
+            {
+                return null;
+            }
+            
         }
 
         public SocketGuild GetSocketGuild()
